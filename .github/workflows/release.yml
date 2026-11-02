@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build release binary
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --target x86_64-unknown-linux-musl
+          rustup default 1.97.0
+
+      - name: Install musl tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build release binary
+        run: cargo build --release --locked --target x86_64-unknown-linux-musl
+
+      - name: Package release
+        run: |
+          set -euo pipefail
+          name="takumi-render-${GITHUB_REF_NAME}-x86_64-unknown-linux-musl"
+          mkdir -p "dist/${name}"
+          cp target/x86_64-unknown-linux-musl/release/takumi-render "dist/${name}/"
+          cp README.md LICENSE "dist/${name}/"
+          tar -czf "dist/${name}.tar.gz" -C dist "${name}"
+          (cd dist && sha256sum "${name}.tar.gz" > SHA256SUMS)
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS

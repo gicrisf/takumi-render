@@ -1,0 +1,25 @@
+[package]
+name = "takumi-render"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+license = "MIT"
+description = "Render HTML and CSS to PNG with Takumi, without Node.js."
+publish = false
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.6", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+takumi = { version = "2.19", default-features = false, features = ["from-html", "jpeg", "png", "raster-backend", "svg-source", "woff", "woff2"] }
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+strip = "symbols"
