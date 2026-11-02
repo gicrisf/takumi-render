@@ -16,7 +16,15 @@ already have HTML and CSS.
 
 ### Prebuilt binary
 
-Prebuilt Linux x86_64 binaries are attached to each [GitHub release](https://github.com/gicrisf/takumi-render/releases).
+Install the latest Linux x86_64 binary with the installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/gicrisf/takumi-render/main/install.sh | bash
+```
+
+This installs to `~/.local/bin`. Set `TAKUMI_RENDER_INSTALL_DIR` to choose another directory, or
+`TAKUMI_RENDER_VERSION` to pin a release. Manual downloads are available from the
+[releases page](https://github.com/gicrisf/takumi-render/releases).
 
 ### Cargo
 
