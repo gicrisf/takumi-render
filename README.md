@@ -59,6 +59,10 @@ Use data URLs in the HTML for local images, so the renderer never needs to fetch
 <div style="background-image:url('data:image/jpeg;base64,...')"></div>
 ```
 
+Inline `style` attributes and `<style>` blocks (in the head or body) are applied. External
+`<link rel="stylesheet" href="...">` references are not resolved, and neither are presentation
+attributes such as `bgcolor`; inline that CSS in a `<style>` block or `style` attribute instead.
+
 ## Batch mode
 
 Batch mode loads the font set once and renders every card in order.

@@ -5,9 +5,10 @@ use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use takumi::prelude::{
-    FontResource, Fonts, FromHtmlOptions, OutputFormat, RenderOptions, Viewport,
+    Bitmap, FontResource, Fonts, FromHtmlOptions, OutputFormat, RenderOptions, StyleSheet, Viewport,
 };
-use takumi::{from_html, render, write_image};
+use takumi::unstable::html::parse_html;
+use takumi::{render, write_image};
 use walkdir::WalkDir;
 
 /// Default social-preview width in pixels.
@@ -83,15 +84,22 @@ pub fn load_fonts(directories: &[PathBuf]) -> Result<Fonts> {
     Ok(fonts)
 }
 
-/// Render one HTML string to PNG bytes.
-pub fn render_html(html: &str, width: u32, height: u32, fonts: &Fonts) -> Result<Vec<u8>> {
-    let node = from_html(html, FromHtmlOptions::default()).context("parse HTML")?;
+/// Render one HTML string to an RGBA bitmap.
+fn render_bitmap(html: &str, width: u32, height: u32, fonts: &Fonts) -> Result<Bitmap> {
+    let parsed = parse_html(html, FromHtmlOptions::default()).context("parse HTML")?;
+    let stylesheet = StyleSheet::parse(&parsed.css.join("\n")).context("parse CSS")?;
     let options = RenderOptions::builder()
         .viewport(Viewport::new((width, height)))
-        .node(node)
+        .node(parsed.node)
         .fonts(fonts)
+        .stylesheet(stylesheet.into())
         .build();
-    let image = render(options).context("render HTML")?;
+    render(options).context("render HTML")
+}
+
+/// Render one HTML string to PNG bytes.
+pub fn render_html(html: &str, width: u32, height: u32, fonts: &Fonts) -> Result<Vec<u8>> {
+    let image = render_bitmap(html, width, height, fonts)?;
     let mut png = Vec::new();
     write_image(&image, &mut png, OutputFormat::Png).context("encode PNG")?;
     Ok(png)
@@ -135,6 +143,47 @@ fn is_font(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn background_pixel(html: &str) -> [u8; 4] {
+        let image = render_bitmap(html, 10, 10, &Fonts::default()).unwrap();
+        image.as_raw()[..4].try_into().unwrap()
+    }
+
+    #[test]
+    fn applies_style_blocks_in_the_head() {
+        let pixel = background_pixel(
+            r#"<html><head><style>
+                html, body { margin: 0; padding: 0; width: 100%; height: 100% }
+                div { width: 100%; height: 100%; background: #123456 }
+            </style></head><body><div></div></body></html>"#,
+        );
+
+        assert_eq!(pixel, [0x12, 0x34, 0x56, 0xff]);
+    }
+
+    #[test]
+    fn applies_style_blocks_in_the_body() {
+        let pixel = background_pixel(
+            r#"<html><body><style>
+                html, body { margin: 0; padding: 0; width: 100%; height: 100% }
+                div { width: 100%; height: 100%; background: #123456 }
+            </style><div></div></body></html>"#,
+        );
+
+        assert_eq!(pixel, [0x12, 0x34, 0x56, 0xff]);
+    }
+
+    #[test]
+    fn later_style_blocks_win_on_ties() {
+        let pixel = background_pixel(
+            r#"<html><head>
+                <style>html, body { margin: 0; width: 100%; height: 100% } div { width: 100%; height: 100%; background: #123456 }</style>
+                <style>div { background: #654321 }</style>
+            </head><body><div></div></body></html>"#,
+        );
+
+        assert_eq!(pixel, [0x65, 0x43, 0x21, 0xff]);
+    }
 
     #[test]
     fn renders_a_png_without_text() {
